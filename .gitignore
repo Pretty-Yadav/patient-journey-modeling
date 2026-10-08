@@ -221,3 +221,6 @@ __marimo__/
 
 # Local PhysioNet / MIMIC data
 physionet.org/
+
+# Generated processed datasets
+data/processed/
