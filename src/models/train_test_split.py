@@ -1,7 +1,8 @@
 from pathlib import Path
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
+
+from src.models.split_validation import create_patient_level_split
 
 
 # ==============================
@@ -31,38 +32,16 @@ print(f"Total patients: {len(df)}")
 # Define features and target
 # ==============================
 
-X = df[
-    [
-        "anchor_age",
-        "gender",
-    ]
-]
+FEATURES = ["anchor_age", "gender"]
+TARGET = "readmission_180d"
 
-y = df["readmission_180d"]
-
-
-# ==============================
-# Stratified train/test split
-# ==============================
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
+train_df, test_df = create_patient_level_split(
+    df,
+    feature_columns=FEATURES,
+    target_column=TARGET,
     test_size=0.25,
-    random_state=RANDOM_SEED,
-    stratify=y,
+    random_seed=RANDOM_SEED,
 )
-
-
-# ==============================
-# Rebuild datasets
-# ==============================
-
-train_df = X_train.copy()
-train_df["readmission_180d"] = y_train
-
-test_df = X_test.copy()
-test_df["readmission_180d"] = y_test
 
 
 # ==============================
@@ -92,11 +71,11 @@ print(f"Testing patients:  {len(test_df)}")
 
 print()
 print("Training target distribution:")
-print(train_df["readmission_180d"].value_counts())
+print(train_df[TARGET].value_counts())
 
 print()
 print("Testing target distribution:")
-print(test_df["readmission_180d"].value_counts())
+print(test_df[TARGET].value_counts())
 
 print()
 print("Saved:")

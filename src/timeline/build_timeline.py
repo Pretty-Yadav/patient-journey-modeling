@@ -1,164 +1,91 @@
-import pandas as pd
+"""Build the hospital-only projection of the canonical event timeline."""
+
+from __future__ import annotations
+
+import argparse
 from pathlib import Path
 
+import pandas as pd
 
-# ---------------------------------------
-# File paths
-# ---------------------------------------
-
-ADMISSIONS_PATH = Path(
-    "physionet.org/files/mimic-iv-demo/2.2/hosp/admissions.csv.gz"
-)
-
-COHORT_PATH = Path(
-    "data/processed/cohort.csv"
-)
-
-OUTPUT_PATH = Path(
-    "data/processed/patient_timeline.csv"
+from src.data.validate_inputs import DEFAULT_DATA_DIR
+from src.timeline.build_enriched_timeline import (
+    COHORT_PATH,
+    OUTPUT_PATH as ENRICHED_OUTPUT_PATH,
+    REPOSITORY_ROOT,
+    build_enriched_timeline,
 )
 
 
-# ---------------------------------------
-# Load data
-# ---------------------------------------
-
-print("Loading admissions data...")
-
-admissions = pd.read_csv(
-    ADMISSIONS_PATH,
-    compression="gzip"
-)
-
-cohort = pd.read_csv(
-    COHORT_PATH
-)
+OUTPUT_PATH = REPOSITORY_ROOT / "data/processed/patient_timeline.csv"
 
 
-# ---------------------------------------
-# Convert dates
-# ---------------------------------------
-
-admissions["admittime"] = pd.to_datetime(
-    admissions["admittime"]
-)
-
-admissions["dischtime"] = pd.to_datetime(
-    admissions["dischtime"]
-)
-
-cohort["index_admittime"] = pd.to_datetime(
-    cohort["index_admittime"]
-)
-
-cohort["index_dischtime"] = pd.to_datetime(
-    cohort["index_dischtime"]
-)
-
-
-# ---------------------------------------
-# Keep only cohort patients
-# ---------------------------------------
-
-cohort_patients = cohort["subject_id"].unique()
-
-admissions = admissions[
-    admissions["subject_id"].isin(cohort_patients)
-].copy()
-
-
-# ---------------------------------------
-# Sort patient admissions
-# ---------------------------------------
-
-admissions = admissions.sort_values(
-    ["subject_id", "admittime"]
-)
-
-
-# ---------------------------------------
-# Build timeline
-# ---------------------------------------
-
-timeline_rows = []
-
-
-for subject_id, patient_admissions in admissions.groupby("subject_id"):
-
-    patient_admissions = patient_admissions.sort_values(
-        "admittime"
+def build_timeline(
+    admissions: pd.DataFrame,
+    diagnoses: pd.DataFrame,
+    diagnosis_dictionary: pd.DataFrame,
+    cohort: pd.DataFrame,
+) -> pd.DataFrame:
+    """Return admission/discharge events from the shared canonical builder."""
+    timeline = build_enriched_timeline(
+        admissions, diagnoses, diagnosis_dictionary, cohort
     )
-
-    for _, admission in patient_admissions.iterrows():
-
-        timeline_rows.append({
-            "subject_id": subject_id,
-            "hadm_id": admission["hadm_id"],
-            "event_type": "hospital_admission",
-            "event_time": admission["admittime"],
-            "admission_type": admission["admission_type"],
-            "discharge_location": admission["discharge_location"]
-        })
-
-        timeline_rows.append({
-            "subject_id": subject_id,
-            "hadm_id": admission["hadm_id"],
-            "event_type": "hospital_discharge",
-            "event_time": admission["dischtime"],
-            "admission_type": admission["admission_type"],
-            "discharge_location": admission["discharge_location"]
-        })
+    return timeline.loc[
+        timeline["event_type"].isin(
+            ["hospital_admission", "hospital_discharge"]
+        )
+    ].reset_index(drop=True)
 
 
-# ---------------------------------------
-# Create DataFrame
-# ---------------------------------------
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Build the hospital-only patient timeline."
+    )
+    parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
+    parser.add_argument("--cohort", type=Path, default=COHORT_PATH)
+    parser.add_argument("--output", type=Path, default=OUTPUT_PATH)
+    parser.add_argument("--overwrite", action="store_true")
+    args = parser.parse_args()
 
-timeline = pd.DataFrame(timeline_rows)
+    output_path = args.output
+    if not output_path.is_absolute():
+        output_path = REPOSITORY_ROOT / output_path
+    if output_path.exists() and not args.overwrite:
+        parser.error(
+            f"output already exists: {output_path}; use another --output "
+            "or pass --overwrite after reviewing it"
+        )
+
+    missing = [
+        filename
+        for filename in (
+            "admissions.csv.gz",
+            "diagnoses_icd.csv.gz",
+            "d_icd_diagnoses.csv.gz",
+        )
+        if not (args.data_dir / filename).is_file()
+    ]
+    if missing:
+        parser.error(
+            f"missing timeline inputs in {args.data_dir}: {', '.join(missing)}"
+        )
+
+    cohort_path = args.cohort
+    if not cohort_path.is_absolute():
+        cohort_path = REPOSITORY_ROOT / cohort_path
+    timeline = build_timeline(
+        pd.read_csv(args.data_dir / "admissions.csv.gz"),
+        pd.read_csv(args.data_dir / "diagnoses_icd.csv.gz"),
+        pd.read_csv(args.data_dir / "d_icd_diagnoses.csv.gz"),
+        pd.read_csv(cohort_path),
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    timeline.to_csv(output_path, index=False)
+    print(
+        f"Timeline events: {len(timeline)}; patients: "
+        f"{timeline['subject_id'].nunique()}; saved to: {output_path}"
+    )
+    return 0
 
 
-# ---------------------------------------
-# Sort timeline
-# ---------------------------------------
-
-timeline = timeline.sort_values(
-    ["subject_id", "event_time"]
-).reset_index(drop=True)
-
-
-# ---------------------------------------
-# Save
-# ---------------------------------------
-
-OUTPUT_PATH.parent.mkdir(
-    parents=True,
-    exist_ok=True
-)
-
-timeline.to_csv(
-    OUTPUT_PATH,
-    index=False
-)
-
-
-# ---------------------------------------
-# Summary
-# ---------------------------------------
-
-print("=" * 60)
-print("PATIENT TIMELINE CREATED")
-print("=" * 60)
-
-print(f"Patients: {timeline['subject_id'].nunique()}")
-print(f"Timeline events: {len(timeline)}")
-
-print("\nEvent types:")
-print(timeline["event_type"].value_counts())
-
-print("\nFirst 10 timeline events:")
-print(timeline.head(10).to_string(index=False))
-
-print("\nSaved to:")
-print(OUTPUT_PATH)
-
-print("=" * 60)
+if __name__ == "__main__":
+    raise SystemExit(main())
