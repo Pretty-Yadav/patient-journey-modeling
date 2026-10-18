@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local PhysioNet / MIMIC data
+physionet.org/
+
+# Generated processed datasets
+data/processed/

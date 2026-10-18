@@ -1,0 +1,5 @@
+subgroup,patients,readmissions,brier_score,roc_auc
+Male,4,1,0.2767,0.8333
+Female,2,0,0.0171,
+Younger (<65),2,1,0.3103,0.5
+Older (65+),4,0,0.1301,
