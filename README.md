@@ -15,7 +15,7 @@ python -m pip install -r dashboard/requirements.txt
 streamlit run dashboard/app.py
 ```
 
-Open <http://localhost:8501>. The dashboard reads available CSV and image artifacts directly from `data/processed/` and `reports/`; it does not require the API to run. If optional artifacts are absent, their dashboard sections will be empty or show zero counts.
+Open <http://localhost:8501>. The dashboard reads available CSV and image artifacts directly from `data/processed/` and `reports/`; it does not require the API to run. It prefers `cohort_phase3.csv` and falls back to the tracked `cohort.csv` when the phase-3 artifact is not present. If optional artifacts are absent, their dashboard sections will be empty or show zero counts.
 
 To run the API separately, install the app dependencies and start Uvicorn:
 
@@ -43,7 +43,7 @@ The dashboard can run on Community Cloud without a separately hosted API. Its li
 3. Select the repository and branch, and set **Main file path** to `dashboard/app.py`.
 4. Select Python 3.12 in the advanced settings, then deploy.
 
-No API URL or secrets are required for this dashboard configuration. Community Cloud only receives files committed to the selected GitHub branch; files present only in your Codespace are not deployed. To populate all dashboard sections, include the approved artifacts: `data/processed/cohort_phase3.csv`, `data/processed/xgboost_predictions.csv`, `reports/xgboost_feature_importance.csv`, `reports/subgroup_analysis.csv`, and optionally `reports/xgboost_calibration.png`.
+No API URL or secrets are required for this dashboard configuration. Community Cloud only receives files committed to the selected GitHub branch; files present only in your Codespace are not deployed. The committed `data/processed/cohort.csv` is used automatically when `cohort_phase3.csv` is absent. To populate prediction and evaluation sections, include the approved `data/processed/xgboost_predictions.csv`, `reports/xgboost_feature_importance.csv`, `reports/subgroup_analysis.csv`, and optionally `reports/xgboost_calibration.png`.
 
 Before publishing, confirm that you have permission to host every artifact. Do not commit raw MIMIC-IV data or patient-level records to a public repository or public app. The dashboard includes prediction records, so check the repository and app visibility and the applicable data-use terms; prefer approved aggregate outputs for public demos.
 

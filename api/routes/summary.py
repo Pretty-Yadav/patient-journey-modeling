@@ -6,6 +6,7 @@ import pandas as pd
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 COHORT_PATH = REPOSITORY_ROOT / "data/processed/cohort_phase3.csv"
+FALLBACK_COHORT_PATH = REPOSITORY_ROOT / "data/processed/cohort.csv"
 PREDICTIONS_PATH = REPOSITORY_ROOT / "data/processed/xgboost_predictions.csv"
 FEATURE_IMPORTANCE_PATH = REPOSITORY_ROOT / "reports/xgboost_feature_importance.csv"
 SUBGROUP_PATH = REPOSITORY_ROOT / "reports/subgroup_analysis.csv"
@@ -19,6 +20,8 @@ def _safe_read_csv(path: Path) -> pd.DataFrame | None:
 
 def get_summary() -> dict:
     cohort = _safe_read_csv(COHORT_PATH)
+    if cohort is None:
+        cohort = _safe_read_csv(FALLBACK_COHORT_PATH)
     predictions = _safe_read_csv(PREDICTIONS_PATH)
     feature_importance = _safe_read_csv(FEATURE_IMPORTANCE_PATH)
     subgroup = _safe_read_csv(SUBGROUP_PATH)
